@@ -13,6 +13,8 @@ ICON = 'icon-default.jpg'
 DEVICE_TYPE = 'Plex ControlHue'
 DISCOVERY_BROKER = 'http://www.meethue.com/api/nupnp'
 
+API = None
+
 
 def Start():
     ObjectContainer.art = R(ART)
@@ -24,6 +26,7 @@ def Start():
 
 @handler('/applications/controlhue', L('Title'), ICON, ART)
 def MainMenu():
+    global API
 
     oc = ObjectContainer()
 
@@ -37,35 +40,41 @@ def MainMenu():
         # TODO: len(hues) > 1 -> select controller
         bridge = bridges[0]
 
-        return ListLights(bridge)
+        API = ClipAPI(bridge)
+
+        return ListLights()
 
     #oc.add(PrefsObject(title="Preferences", summary="Configure how to connect to Trakt.tv", thumb=R("icon-preferences.png")))
     return oc
 
 
 @route('/applications/controlhue/refresh')
-def Refresh(bridge):
+def Refresh():
     return MessageContainer('test', 'test')
 
 
-def ListLights(bridge):
-    api = ClipAPI(bridge)
+def ListLights():
+    global API
 
     oc = ObjectContainer()
     try:
-        for light in api.list():
-            if light.get('active'):
+        for light in API.list():
+            if light['active']:
                 thumb = R("icon-bulb-on.png")
             else:
                 thumb = R("icon-bulb-off.png")
 
+            Log(type(light))
+
             oc.add(
                 DirectoryObject(
-                    key=Callback(ToggleLight, light, api=api),
-                    title=light.get('name'),
+                    key=Callback(ToggleLight, light=JSON.StringFromObject(light)),
+                    title=light['name'],
                     thumb=thumb))
+
+        oc.add(DirectoryObject(key=Callback(AllLightOff), title='All Off'))
     except LinkError:
-        oc.add(DirectoryObject(key=Callback(Refresh, bridge=bridge), title=L("Refresh"), summary=L("Click this after you have pressed the link button on your Hue bridge.")))
+        oc.add(DirectoryObject(key=Callback(Refresh), title=L("Refresh"), summary=L("Click this after you have pressed the link button on your Hue bridge.")))
 
     return oc
 
@@ -73,9 +82,21 @@ def ListLights(bridge):
 def FindHueBridges():
     return JSON.ObjectFromURL(DISCOVERY_BROKER)
 
+
 @route('/applications/controlhue/toggle')
-def ToggleLight(light, api):
-    if light.get('active'):
-        api.off(light.get('id'))
+def ToggleLight(light):
+    global API
+
+    light = JSON.ObjectFromString(light)
+    if light['active']:
+        API.off(light['id'])
     else:
-        api.on(light.get('id'))
+        API.on(light['id'])
+
+
+@route('/applications/controlhue/alloff')
+def AllLightOff():
+    global API
+
+    for light in API.list():
+        API.off(light['id'])

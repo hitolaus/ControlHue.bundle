@@ -16,7 +16,7 @@ class ClipAPI:
 
         #{'1': {'name': 'Miss K'}, '3': {'name': 'Ceiling Lamp'}, '2': {'name': 'AJ Floor'}}
         for key, value in results.items():
-            lights.append({'id': key, 'name': value['name']})
+            lights.append({'id': key, 'name': value['name'], 'active': False})
 
         # [ { "active": true, "name", "Foo"} ]
         return lights
@@ -24,10 +24,12 @@ class ClipAPI:
     # http://<bridge ip address>/api/newdeveloper/lights/1/state
     # PUT{"on":true}
     def on(self, light):
-        self.request(self.api + '/' + self.API_USERNAME + '/lights/' + light + '/state', 'PUT')
+        data = JSON.StringFromObject({'on': True})
+        self.request(self.api + '/' + self.API_USERNAME + '/lights/' + light + '/state', 'PUT', data)
 
     def off(self, light):
-        self.equest(self.api + '/' + self.API_USERNAME + '/lights/' + light + '/state', 'PUT')
+        data = JSON.StringFromObject({'on': False})
+        self.request(self.api + '/' + self.API_USERNAME + '/lights/' + light + '/state', 'PUT', data)
 
     # http://<bridge ip address>/api
     # POST {"devicetype":"test user","username":"newdeveloper"}
@@ -41,8 +43,11 @@ class ClipAPI:
         if self.is_link_error(JSON.ObjectFromString(resp)):
             raise LinkError('Not linked')
 
-    def request(self, url, method='GET'):
-        results = JSON.ObjectFromURL(url, method=method)
+    def request(self, url, method='GET', data=None):
+        #results = JSON.ObjectFromURL(url, method=method)
+
+        resp = HTTP.Request(url, method=method, data=data).content
+        results = JSON.ObjectFromString(resp)
 
         Log(results)
 
